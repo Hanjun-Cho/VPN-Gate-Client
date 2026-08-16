@@ -28,4 +28,7 @@ Desktop Client for Connecting to [VPN Gate](https://www.vpngate.net/) Relay Serv
    - [ ] Display Countries with Available Servers
    - [ ] Select Country as Destination     
    - [ ] Automatically Select Server Least Likely to be Detected as a VPN
+   - [ ] Manual Server Selection
+- [ ] Keep Application Open in System Tray
+- [ ] Connectivity Graphs
 - [ ] Improve GUI Visuals
