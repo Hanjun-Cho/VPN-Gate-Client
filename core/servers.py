@@ -1,4 +1,5 @@
 import asyncio
+import base64
 import csv
 import io
 import subprocess
@@ -52,6 +53,13 @@ class Servers:
         result = subprocess.run(["ping", "-c", "1", "-W", "1", ip],
                                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         return result.returncode == 0
+
+    # from the given server decode the 'OpenVPN_ConfigData_Base64' and save as config.ovpn file
+    def get_server_as_config(self, server):
+        config_data = base64.b64decode(server["OpenVPN_ConfigData_Base64"]).decode("utf-8")
+        with open("config.ovpn", "w") as file:
+            file.write(config_data)
+        return config_data
 
     def get_servers(self):
         return self.servers

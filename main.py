@@ -1,10 +1,14 @@
-import asyncio
+import sys
 
-from core.servers import Servers
+from PySide6.QtWidgets import QApplication
 
-async def main():
-    servers = await Servers.create()
-    print(servers.get_countries())
-    print(servers.get_servers_in_country('Japan'))
+from ui.main_window import MainWindow
 
-asyncio.run(main())
+def main():
+    app = QApplication(sys.argv)
+    window = MainWindow()
+    window.show()
+    sys.exit(app.exec())
+
+if __name__ == "__main__":
+    main()
