@@ -55,10 +55,14 @@ class VPNClient:
             file.write(config)
             file.write(f"\nmanagement 127.0.0.1 {port}\n")
 
+        kwargs = {}
+        if sys.platform.startswith("win"):
+            kwargs["creationflags"] = subprocess.CREATE_NO_WINDOW
         self._process = subprocess.Popen(
             [_find_openvpn(), "--config", self._config_path],
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
+            **kwargs,
         )
 
         self._vpn = VPN("127.0.0.1", port)

@@ -53,10 +53,13 @@ class Servers:
             return False
         if sys.platform.startswith("win"):
             cmd = ["ping", "-n", "2", "-w", "1000", ip]
+            kwargs = {"creationflags": subprocess.CREATE_NO_WINDOW}
         else:
             cmd = ["ping", "-c", "2", "-W", "1", ip]
+            kwargs = {}
         result = subprocess.run(cmd,
-                                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                                **kwargs)
         return result.returncode == 0
 
     # from the given server decode the 'OpenVPN_ConfigData_Base64' and save as config.ovpn file

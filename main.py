@@ -18,13 +18,14 @@ def _is_admin():
 
 def _elevate():
     # on Windows, re-launch with administrator privileges (UAC prompt) unless
-    # we already have them; returns True if the current process can proceed
+    # we already have them; returns True if the current process should run the
+    # app, False if an elevated instance was launched and this one must exit
     if os.name != "nt" or _is_admin():
         return True
     result = ctypes.windll.shell32.ShellExecuteW(
         None, "runas", sys.executable, " ".join(sys.argv), None, 1
     )
-    return result > 32
+    return result <= 32
 
 
 def main():
