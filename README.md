@@ -1,33 +1,31 @@
 # VPN Gate Client
 
-A desktop application for connecting to public VPN servers from the
-[VPN Gate](https://www.vpngate.net/) network. It fetches the list of available
-servers, checks which ones are reachable, and lets you connect to one with a
-single click. Currently it automatically connects to a server in Japan.
+Desktop Client for Connecting to [VPN Gate](https://www.vpngate.net/) Relay Server by Country in One Click  
+>Currently automatically connects to a server in Japan.
 
-## Installation
+<img width="900" height="450" alt="image" src="https://github.com/user-attachments/assets/7f28d38c-a509-4d1c-9474-fed88fd63f44" />
 
-Download the latest release from the [Releases page](../../releases) and
-install or extract the files provided there.
+<br>
+<br>
 
 ## Usage
 
-1. Install [OpenVPN](https://openvpn.net/community-downloads/) (OpenVPN GUI /
-   the installer). This is required because the app launches the `openvpn.exe`
-   binary to establish the connection.
+1. Install [OpenVPN](https://openvpn.net/community-downloads/)
 
-2. Extract the `VPNServerManager.zip` file to a folder of your choice.
+2. Extract the `VPNServerManager.zip` file from [Releases page](../../releases).
 
-3. Run `VPNServerManager.exe`. On Windows, allow the User Account Control (UAC)
-   prompt so the app can set up the VPN connection.
+3. Run `VPNServerManager.exe`
 
-4. Click **Connect**. The app will connect to a Japanese server and show the
-   country and IP you are connected to.
+4. Click **Connect**
+
+<br>
 
 ## Roadmap
 
-- [ ] Add cross-platform support (macOS, Linux)
-- [ ] Auto-select best server based on latency
-- [ ] Add server list filter and manual selection
-- [ ] Improve UI and connection status notifications
-- [ ] Add logs and error reporting
+- [X] Connect to Relay Server through OpenVPN
+- [X] Basic GUI
+- [ ] Country Selection
+   - [ ] Display Countries with Available Servers
+   - [ ] Select Country as Destination     
+   - [ ] Automatically Select Server Least Likely to be Detected as a VPN
+- [ ] Improve GUI Visuals
