@@ -3,6 +3,7 @@ import base64
 import csv
 import io
 import subprocess
+import sys
 import urllib.request
 
 class Servers:
@@ -50,7 +51,11 @@ class Servers:
     def is_server_available(self, ip):
         if not ip:
             return False
-        result = subprocess.run(["ping", "-c", "1", "-W", "1", ip],
+        if sys.platform.startswith("win"):
+            cmd = ["ping", "-n", "2", "-w", "1000", ip]
+        else:
+            cmd = ["ping", "-c", "2", "-W", "1", ip]
+        result = subprocess.run(cmd,
                                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         return result.returncode == 0
 

@@ -1,11 +1,39 @@
 import atexit
+import os
+import shutil
 import socket
 import subprocess
+import sys
 import tempfile
 import time
 
 from openvpn_api import VPN
 from openvpn_api import errors
+
+# resolves the path to the openvpn executable, which is not always on PATH
+# (particularly on Windows). Honors an explicit override via the
+# OPENVPN_PATH environment variable.
+def _find_openvpn():
+    env_path = os.environ.get("OPENVPN_PATH")
+    if env_path:
+        return env_path
+
+    which = shutil.which("openvpn")
+    if which:
+        return which
+
+    if sys.platform.startswith("win"):
+        candidates = [
+            r"C:\Program Files\OpenVPN\bin\openvpn.exe",
+        ]
+        for candidate in candidates:
+            if os.path.isfile(candidate):
+                return candidate
+
+    raise FileNotFoundError(
+        "Could not locate the OpenVPN executable. "
+        "Set the OPENVPN_PATH environment variable to its full path."
+    )
 
 # launches an OpenVPN process with the given config and queries its management
 # interface using the openvpn-api library
@@ -28,19 +56,30 @@ class VPNClient:
             file.write(f"\nmanagement 127.0.0.1 {port}\n")
 
         self._process = subprocess.Popen(
-            ["openvpn", "--config", self._config_path],
+            [_find_openvpn(), "--config", self._config_path],
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
         )
 
         self._vpn = VPN("127.0.0.1", port)
-        for _ in range(20):
+        for _ in range(60):
             try:
                 self._vpn.connect()
-                return True
+                break
             except errors.ConnectError:
                 time.sleep(0.5)
-        raise errors.ConnectError("Timed out waiting for management interface")
+        else:
+            raise errors.ConnectError("Timed out waiting for management interface")
+
+        for _ in range(60):
+            self._vpn.clear_cache()
+            state = self._vpn.state.state_name
+            if state == "CONNECTED":
+                return True
+            if state in ("EXITING", "RECONNECTING"):
+                raise errors.ConnectError(f"VPN failed to connect (state: {state})")
+            time.sleep(1)
+        raise errors.ConnectError("Timed out waiting for tunnel to establish")
 
     def disconnect(self):
         # disconnects if connected to a server
@@ -52,7 +91,13 @@ class VPNClient:
             self._process = None
 
     def is_connected(self):
-        return self._vpn is not None and self._vpn.is_connected
+        if self._vpn is None:
+            return False
+        try:
+            self._vpn.clear_cache()
+            return self._vpn.state.state_name == "CONNECTED"
+        except (errors.ConnectError, errors.NotConnectedError, OSError):
+            return False
 
     def status(self):
         # current status of connectivity

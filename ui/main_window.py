@@ -21,9 +21,13 @@ class MainWindow(QMainWindow):
         self._status = QLabel("Loading servers...")
         self._status.setStyleSheet("color: gray;")
 
+        self._server_info = QLabel("")
+        self._server_info.setStyleSheet("color: gray;")
+
         layout = QVBoxLayout()
         layout.addWidget(self._button)
         layout.addWidget(self._status)
+        layout.addWidget(self._server_info)
         container = QWidget()
         container.setLayout(layout)
         self.setCentralWidget(container)
@@ -53,6 +57,7 @@ class MainWindow(QMainWindow):
             self._button.setText("Connect")
             self._status.setText("Disconnected")
             self._status.setStyleSheet("color: gray;")
+            self._server_info.setText("")
         else:
             self._connect()
 
@@ -65,11 +70,16 @@ class MainWindow(QMainWindow):
         self._connect_worker.finished.connect(lambda: self._button.setEnabled(True))
         self._connect_worker.start()
 
-    def _on_connected(self, success):
+    def _on_connected(self, success, server):
         if success:
             self._button.setText("Disconnect")
             self._status.setText("Connected")
             self._status.setStyleSheet("color: green;")
+            if server:
+                self._server_info.setText(
+                    f"{server.get('CountryLong', 'Unknown')} - {server.get('IP', 'Unknown')}"
+                )
+                self._server_info.setStyleSheet("color: green;")
 
     def _on_message(self, text):
         self._status.setText(text)

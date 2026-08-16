@@ -23,8 +23,8 @@ class LoadServersWorker(QThread):
 
 
 class ConnectWorker(QThread):
-    # emits True on success, False otherwise
-    connected = Signal(bool)
+    # emits True and the connected server dict on success, (False, None) otherwise
+    connected = Signal(bool, object)
     message = Signal(str)
 
     def __init__(self, client, servers):
@@ -36,12 +36,13 @@ class ConnectWorker(QThread):
         try:
             if not self._servers.get_servers():
                 self.message.emit("No available servers")
-                self.connected.emit(False)
+                self.connected.emit(False, None)
                 return
             server = self._servers.get_servers()[0]
+            print(f"Connecting to {server.get('CountryLong', 'Unknown')} - {server.get('IP', 'Unknown')}")
             config = self._servers.get_server_as_config(server)
             self._client.connect(config)
-            self.connected.emit(True)
+            self.connected.emit(True, server)
         except Exception as exc:
             self.message.emit(str(exc))
-            self.connected.emit(False)
+            self.connected.emit(False, None)
