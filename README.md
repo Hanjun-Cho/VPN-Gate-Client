@@ -23,3 +23,11 @@ install or extract the files provided there.
 
 4. Click **Connect**. The app will connect to a Japanese server and show the
    country and IP you are connected to.
+
+## Roadmap
+
+- [ ] Add cross-platform support (macOS, Linux)
+- [ ] Auto-select best server based on latency
+- [ ] Add server list filter and manual selection
+- [ ] Improve UI and connection status notifications
+- [ ] Add logs and error reporting
