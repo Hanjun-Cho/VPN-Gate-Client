@@ -1,4 +1,5 @@
 import asyncio
+import threading
 
 from PySide6.QtCore import QThread, Signal
 
@@ -26,23 +27,39 @@ class ConnectWorker(QThread):
     # emits True and the connected server dict on success, (False, None) otherwise
     connected = Signal(bool, object)
     message = Signal(str)
+    cancelled = Signal()
 
-    def __init__(self, client, servers):
+    def __init__(self, client, servers, country=None):
         super().__init__()
         self._client = client
         self._servers = servers
+        self._country = country
+        self._cancel_event = threading.Event()
+
+    def cancel(self):
+        # asks the running connection attempt to abort
+        self._cancel_event.set()
 
     def run(self):
         try:
-            if not self._servers.get_servers():
+            servers = (
+                self._servers.get_servers_in_country(self._country)
+                if self._country
+                else self._servers.get_servers()
+            )
+            if not servers:
                 self.message.emit("No available servers")
                 self.connected.emit(False, None)
                 return
-            server = self._servers.get_servers()[0]
+            server = servers[0]
             print(f"Connecting to {server.get('CountryLong', 'Unknown')} - {server.get('IP', 'Unknown')}")
             config = self._servers.get_server_as_config(server)
-            self._client.connect(config)
+            self._client.connect(config, cancel_event=self._cancel_event)
             self.connected.emit(True, server)
         except Exception as exc:
+            if self._cancel_event.is_set():
+                self.cancelled.emit()
+                self.connected.emit(False, None)
+                return
             self.message.emit(str(exc))
             self.connected.emit(False, None)

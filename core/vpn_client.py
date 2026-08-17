@@ -48,7 +48,7 @@ class VPNClient:
         # automatically disconnects when the program stops running
         self.disconnect()
 
-    def connect(self, config):
+    def connect(self, config, cancel_event=None):
         self._config_path = tempfile.mktemp(suffix=".ovpn")
         port = self._free_port()
         with open(self._config_path, "w") as file:
@@ -67,6 +67,9 @@ class VPNClient:
 
         self._vpn = VPN("127.0.0.1", port)
         for _ in range(60):
+            if cancel_event is not None and cancel_event.is_set():
+                self.disconnect()
+                raise errors.ConnectError("Connection cancelled")
             try:
                 self._vpn.connect()
                 break
@@ -76,14 +79,32 @@ class VPNClient:
             raise errors.ConnectError("Timed out waiting for management interface")
 
         for _ in range(60):
-            self._vpn.clear_cache()
-            state = self._vpn.state.state_name
+            if cancel_event is not None and cancel_event.is_set():
+                self.disconnect()
+                raise errors.ConnectError("Connection cancelled")
+            try:
+                self._vpn.clear_cache()
+                state = self._vpn.state.state_name
+            except OSError:
+                self._reconnect_management()
+                continue
             if state == "CONNECTED":
                 return True
             if state in ("EXITING", "RECONNECTING"):
                 raise errors.ConnectError(f"VPN failed to connect (state: {state})")
             time.sleep(1)
         raise errors.ConnectError("Timed out waiting for tunnel to establish")
+
+    def _reconnect_management(self):
+        # the management socket can be dropped while the tunnel is still
+        # establishing; re-open it so polling can continue instead of failing
+        for _ in range(3):
+            try:
+                self._vpn.connect()
+                return
+            except errors.ConnectError:
+                time.sleep(0.5)
+        raise errors.ConnectError("Timed out waiting for management interface")
 
     def disconnect(self):
         # disconnects if connected to a server
