@@ -1,19 +1,23 @@
-from PySide6.QtCore import Signal
-from PySide6.QtWidgets import QDialog, QListWidget, QVBoxLayout
+from PySide6.QtCore import Qt, Signal
+from PySide6.QtWidgets import QDialog, QListWidget, QListWidgetItem, QVBoxLayout
 
 
-class ServerPickerDialog(QDialog):
-    country_selected = Signal(str)
+class PickerDialog(QDialog):
+    # emits the data attached to the selected item
+    selected = Signal(object)
 
-    # popup that shows the list of available countries; selecting one emits the
-    # chosen country and closes the dialog
-    def __init__(self, countries, parent=None):
+    # popup that shows a list of (label, data) choices; selecting one emits its
+    # data and closes the dialog
+    def __init__(self, choices, title, parent=None):
         super().__init__(parent)
-        self.setWindowTitle("Change Server")
+        self.setWindowTitle(title)
         self.resize(240, 320)
 
         self._list = QListWidget()
-        self._list.addItems(countries or [])
+        for label, data in choices:
+            item = QListWidgetItem(label)
+            item.setData(Qt.UserRole, data)
+            self._list.addItem(item)
         self._list.itemDoubleClicked.connect(self._on_item_double_clicked)
 
         layout = QVBoxLayout()
@@ -21,5 +25,5 @@ class ServerPickerDialog(QDialog):
         self.setLayout(layout)
 
     def _on_item_double_clicked(self, item):
-        self.country_selected.emit(item.text())
+        self.selected.emit(item.data(Qt.UserRole))
         self.accept()

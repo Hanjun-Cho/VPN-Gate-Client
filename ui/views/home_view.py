@@ -2,7 +2,7 @@ from PySide6.QtWidgets import QPushButton, QLabel, QVBoxLayout, QWidget
 
 from core.vpn_client import VPNClient
 from ui.workers import LoadServersWorker, ConnectWorker
-from ui.views.server_picker import ServerPickerDialog
+from ui.views.server_picker import PickerDialog
 
 
 class HomeView(QWidget):
@@ -13,12 +13,18 @@ class HomeView(QWidget):
         self._client = VPNClient()
         self._servers = None
         self._selected_country = None
+        self._selected_server = None
         self._load_worker = None
         self._connect_worker = None
 
-        self._change_server = QPushButton("Change Country")
-        self._change_server.setEnabled(False)
-        self._change_server.clicked.connect(self._open_server_picker)
+        self._country_button = QPushButton("Change Country")
+        self._country_button.setEnabled(False)
+        self._country_button.clicked.connect(self._open_country_picker)
+
+        self._server_button = QPushButton("Change Server")
+        self._server_button.setEnabled(False)
+        self._server_button.hide()
+        self._server_button.clicked.connect(self._open_server_picker)
 
         self._button = QPushButton("Connect")
         self._button.clicked.connect(self._toggle_connect)
@@ -34,7 +40,8 @@ class HomeView(QWidget):
         self._server_info.setStyleSheet("color: gray;")
 
         layout = QVBoxLayout()
-        layout.addWidget(self._change_server)
+        layout.addWidget(self._country_button)
+        layout.addWidget(self._server_button)
         layout.addWidget(self._button)
         layout.addWidget(self._cancel_button)
         layout.addWidget(self._status)
@@ -46,22 +53,46 @@ class HomeView(QWidget):
     def is_connected(self):
         return self._client.is_connected()
 
-    def _open_server_picker(self):
+    def _open_country_picker(self):
         countries = self._servers.get_countries() if self._servers else []
-        dialog = ServerPickerDialog(countries, self)
-        dialog.country_selected.connect(self._on_country_selected)
+        dialog = PickerDialog([(c, c) for c in countries], "Change Country", self)
+        dialog.selected.connect(self._on_country_selected)
         dialog.exec()
 
     def _on_country_selected(self, country):
         if country == self._selected_country:
             return
         self._selected_country = country
-        self._change_server.setText(country)
+        self._selected_server = None
+        self._country_button.setText(country)
+        self._server_button.show()
+        self._server_button.setEnabled(True)
+        self._server_button.setText("Change Server")
         if self._connect_worker is not None and self._connect_worker.isRunning():
             self._cancel_connect()
         if self._client.is_connected():
             self._client.disconnect()
             self._reset_idle_ui()
+
+    def _open_server_picker(self):
+        servers = self._servers.get_servers_in_country(self._selected_country) or []
+        choices = [(self._server_label(s), s) for s in servers]
+        dialog = PickerDialog(choices, "Change Server", self)
+        dialog.selected.connect(self._on_server_selected)
+        dialog.exec()
+
+    def _on_server_selected(self, server):
+        self._selected_server = server
+        self._server_button.setText(self._server_label(server))
+        if self._connect_worker is not None and self._connect_worker.isRunning():
+            self._cancel_connect()
+        if self._client.is_connected():
+            self._client.disconnect()
+            self._reset_idle_ui()
+
+    @staticmethod
+    def _server_label(server):
+        return f"{server.get('IP', 'Unknown')} - {server.get('HostName', 'Unknown')}"
 
     def disconnect(self):
         # disconnects an active connection and resets the UI to its idle state
@@ -78,22 +109,12 @@ class HomeView(QWidget):
 
     def _on_servers_loaded(self, servers):
         self._servers = servers
-        self._change_server.setEnabled(servers is not None)
+        self._country_button.setEnabled(servers is not None)
         self._button.setEnabled(True)
         if servers is not None:
-            self._select_default_country()
             self._status.setText("Disconnected")
         else:
             self._status.setText("Failed to load servers")
-
-    def _select_default_country(self):
-        countries = self._servers.get_countries()
-        if "Japan" in countries:
-            self._selected_country = "Japan"
-        elif countries:
-            self._selected_country = countries[0]
-        else:
-            self._selected_country = None
 
     def _toggle_connect(self):
         if self._connect_worker is not None and self._connect_worker.isRunning():
@@ -114,7 +135,9 @@ class HomeView(QWidget):
         self._button.setEnabled(False)
         self._cancel_button.show()
         self._status.setText("Connecting...")
-        self._connect_worker = ConnectWorker(self._client, self._servers, self._selected_country)
+        self._connect_worker = ConnectWorker(
+            self._client, self._servers, self._selected_country, self._selected_server
+        )
         self._connect_worker.connected.connect(self._on_connected)
         self._connect_worker.message.connect(self._on_message)
         self._connect_worker.cancelled.connect(self._on_cancelled)

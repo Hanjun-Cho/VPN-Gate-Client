@@ -1,4 +1,4 @@
 from ui.views.home_view import HomeView
-from ui.views.server_picker import ServerPickerDialog
+from ui.views.server_picker import PickerDialog
 
-__all__ = ["HomeView", "ServerPickerDialog"]
+__all__ = ["HomeView", "PickerDialog"]

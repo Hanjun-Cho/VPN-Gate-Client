@@ -29,11 +29,12 @@ class ConnectWorker(QThread):
     message = Signal(str)
     cancelled = Signal()
 
-    def __init__(self, client, servers, country=None):
+    def __init__(self, client, servers, country=None, server=None):
         super().__init__()
         self._client = client
         self._servers = servers
         self._country = country
+        self._server = server
         self._cancel_event = threading.Event()
 
     def cancel(self):
@@ -42,16 +43,18 @@ class ConnectWorker(QThread):
 
     def run(self):
         try:
-            servers = (
-                self._servers.get_servers_in_country(self._country)
-                if self._country
-                else self._servers.get_servers()
-            )
-            if not servers:
-                self.message.emit("No available servers")
-                self.connected.emit(False, None)
-                return
-            server = servers[0]
+            server = self._server
+            if server is None:
+                servers = (
+                    self._servers.get_servers_in_country(self._country)
+                    if self._country
+                    else self._servers.get_servers()
+                )
+                if not servers:
+                    self.message.emit("No available servers")
+                    self.connected.emit(False, None)
+                    return
+                server = servers[0]
             print(f"Connecting to {server.get('CountryLong', 'Unknown')} - {server.get('IP', 'Unknown')}")
             config = self._servers.get_server_as_config(server)
             self._client.connect(config, cancel_event=self._cancel_event)
