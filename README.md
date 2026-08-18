@@ -1,9 +1,8 @@
 # VPN Gate Client
 
 Desktop Client for Connecting to [VPN Gate](https://www.vpngate.net/) Relay Server by Country in One Click  
->Currently automatically connects to a server in Japan.
 
-<img width="1345" height="835" alt="image" src="https://github.com/user-attachments/assets/5d7ba9f1-b5c3-4a35-91b6-75ccf92577b0" />
+<img width="1587" height="783" alt="image" src="https://github.com/user-attachments/assets/1540f349-e548-4019-8d1d-398c5ddc25e0" />
 
 <br>
 <br>
