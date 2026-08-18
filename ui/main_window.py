@@ -15,7 +15,7 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("VPN Gate Client")
-        self.setMinimumSize(120, 300)
+        self.setMinimumSize(500, 300)
 
         self._view = HomeView()
         self.setCentralWidget(self._view)

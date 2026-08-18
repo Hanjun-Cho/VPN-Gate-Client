@@ -6,6 +6,10 @@ import subprocess
 import sys
 import urllib.request
 
+# how many ICMP pings run at once; pings are cheap, so this runs very parallel
+# to make the reachability check near-instant
+PING_CONCURRENCY = 150
+
 class Servers:
     def __init__(self):
         self.servers = []
@@ -34,21 +38,22 @@ class Servers:
         rows = list(csv.DictReader(io.StringIO(text)))
 
         print("Checking VPN Server Availability...")
-        results = await asyncio.gather(
-            *(asyncio.to_thread(self.is_server_available, row["IP"]) for row in rows)
-        )
-        return [row for row, available in zip(rows, results) if available]
+        return await self._filter_reachable(rows)
 
-    # gets a list of servers and prints the list of countries with available servers
-    async def get_countries_available(self):
-        return sorted({server["CountryLong"] for server in self.servers if server["CountryLong"]})
+    # drops servers that do not respond to ping
+    async def _filter_reachable(self, rows):
+        sem = asyncio.Semaphore(PING_CONCURRENCY)
 
-    # gets all available servers from given country
-    def get_servers_in_country(self, country):
-        return [server for server in self.servers if server["CountryLong"] == country]
+        async def check(row):
+            async with sem:
+                return await asyncio.to_thread(self._is_reachable, row["IP"])
 
-    # pings IP to check if server is reachable
-    def is_server_available(self, ip):
+        results = await asyncio.gather(*(check(row) for row in rows))
+        return [row for row, reachable in zip(rows, results) if reachable]
+
+    # pings the IP to check if the server is reachable; if the ping command
+    # itself cannot run, treats the server as reachable
+    def _is_reachable(self, ip):
         if not ip:
             return False
         if sys.platform.startswith("win"):
@@ -57,10 +62,21 @@ class Servers:
         else:
             cmd = ["ping", "-c", "2", "-W", "1", ip]
             kwargs = {}
-        result = subprocess.run(cmd,
-                                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-                                **kwargs)
+        try:
+            result = subprocess.run(
+                cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, **kwargs
+            )
+        except OSError:
+            return True
         return result.returncode == 0
+
+    # gets a list of servers and prints the list of countries with available servers
+    async def get_countries_available(self):
+        return sorted({server["CountryLong"] for server in self.servers if server["CountryLong"]})
+
+    # gets all available servers from given country
+    def get_servers_in_country(self, country):
+        return [server for server in self.servers if server["CountryLong"] == country]
 
     # from the given server decode the 'OpenVPN_ConfigData_Base64' and save as config.ovpn file
     def get_server_as_config(self, server):

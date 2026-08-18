@@ -15,6 +15,9 @@ from openvpn_api import errors
 MANAGEMENT_RETRIES = 60
 MANAGEMENT_RETRY_DELAY = 0.5
 
+# how many one-second polls to wait for the tunnel to reach CONNECTED
+TUNNEL_RETRIES = 60
+
 # number of whole connection attempts before giving up; each attempt picks a
 # fresh management port to avoid a transient bind conflict
 MAX_CONNECT_ATTEMPTS = 3
@@ -57,16 +60,27 @@ class VPNClient:
         # automatically disconnects when the program stops running
         self.disconnect()
 
-    def connect(self, config, cancel_event=None):
+    def connect(
+        self,
+        config,
+        cancel_event=None,
+        max_attempts=MAX_CONNECT_ATTEMPTS,
+        management_retries=MANAGEMENT_RETRIES,
+        tunnel_retries=TUNNEL_RETRIES,
+    ):
         fd, self._config_path = tempfile.mkstemp(suffix=".ovpn", prefix="vpngate-")
         os.close(fd)
         try:
-            return self._connect_with_retries(config, cancel_event)
+            return self._connect_with_retries(
+                config, cancel_event, max_attempts, management_retries, tunnel_retries
+            )
         finally:
             self._remove_config()
 
-    def _connect_with_retries(self, config, cancel_event):
-        for attempt in range(MAX_CONNECT_ATTEMPTS):
+    def _connect_with_retries(
+        self, config, cancel_event, max_attempts, management_retries, tunnel_retries
+    ):
+        for attempt in range(max_attempts):
             port = self._free_port()
             with open(self._config_path, "w") as file:
                 file.write(config)
@@ -85,21 +99,23 @@ class VPNClient:
 
             self._vpn = VPN("127.0.0.1", port)
             try:
-                self._wait_for_management(cancel_event)
-                return self._wait_for_tunnel(cancel_event)
+                self._wait_for_management(cancel_event, management_retries)
+                return self._wait_for_tunnel(
+                    cancel_event, tunnel_retries, management_retries
+                )
             except errors.ConnectError as exc:
                 self.disconnect()
                 if cancel_event is not None and cancel_event.is_set():
                     raise
-                if attempt < MAX_CONNECT_ATTEMPTS - 1:
+                if attempt < max_attempts - 1:
                     time.sleep(1)
                     continue
                 raise exc
 
-    def _wait_for_management(self, cancel_event):
+    def _wait_for_management(self, cancel_event, management_retries=MANAGEMENT_RETRIES):
         # waits until the OpenVPN management interface is reachable; the
         # socket may take a moment to bind after the process is launched
-        for _ in range(MANAGEMENT_RETRIES):
+        for _ in range(management_retries):
             if cancel_event is not None and cancel_event.is_set():
                 self.disconnect()
                 raise errors.ConnectError("Connection cancelled")
@@ -110,9 +126,10 @@ class VPNClient:
                 time.sleep(MANAGEMENT_RETRY_DELAY)
         raise errors.ConnectError("Timed out waiting for management interface")
 
-    def _wait_for_tunnel(self, cancel_event):
+    def _wait_for_tunnel(self, cancel_event, tunnel_retries=TUNNEL_RETRIES,
+                         management_retries=MANAGEMENT_RETRIES):
         # polls the management interface until the tunnel reports CONNECTED
-        for _ in range(60):
+        for _ in range(tunnel_retries):
             if cancel_event is not None and cancel_event.is_set():
                 self.disconnect()
                 raise errors.ConnectError("Connection cancelled")
@@ -123,7 +140,7 @@ class VPNClient:
                 # the management socket can be dropped while the tunnel is
                 # still establishing; re-open it so polling can continue
                 # instead of failing
-                self._wait_for_management(cancel_event)
+                self._wait_for_management(cancel_event, management_retries)
                 continue
             if state == "CONNECTED":
                 return True
@@ -158,13 +175,17 @@ class VPNClient:
                     pass
 
     def disconnect(self):
-        # disconnects if connected to a server
-        if self._vpn is not None:
-            self._vpn.disconnect()
-            self._vpn = None
-        if self._process is not None:
-            self._process.terminate()
-            self._process = None
+        # disconnects if connected to a server; best-effort cleanup that must
+        # never raise, since it runs from teardown and exception paths
+        try:
+            if self._vpn is not None:
+                self._vpn.disconnect()
+                self._vpn = None
+            if self._process is not None:
+                self._process.terminate()
+                self._process = None
+        except Exception:
+            pass
         stderr_log = getattr(self, "_stderr_log", None)
         if stderr_log is not None:
             try:

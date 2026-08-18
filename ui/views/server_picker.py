@@ -11,7 +11,7 @@ class PickerDialog(QDialog):
     def __init__(self, choices, title, parent=None):
         super().__init__(parent)
         self.setWindowTitle(title)
-        self.resize(240, 320)
+        self.resize(400, 320)
 
         self._list = QListWidget()
         for label, data in choices:

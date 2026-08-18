@@ -5,6 +5,15 @@ from ui.workers import LoadServersWorker, ConnectWorker
 from ui.views.server_picker import PickerDialog
 
 
+def _parse_score(value):
+    # converts the VPNGate 'Score' field to a numeric sort key, treating
+    # missing values as the lowest score
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return float("-inf")
+
+
 class HomeView(QWidget):
     # the landing view: a connect button plus status and server info labels
     def __init__(self):
@@ -86,6 +95,9 @@ class HomeView(QWidget):
 
     def _open_server_picker(self):
         servers = self._servers.get_servers_in_country(self._selected_country) or []
+        servers = sorted(
+            servers, key=lambda s: _parse_score(s.get('Score')), reverse=True
+        )
         choices = [(self._server_label(s), s) for s in servers]
         dialog = PickerDialog(choices, "Change Server", self)
         dialog.selected.connect(self._on_server_selected)
@@ -102,7 +114,23 @@ class HomeView(QWidget):
 
     @staticmethod
     def _server_label(server):
-        return f"{server.get('IP', 'Unknown')} - {server.get('HostName', 'Unknown')}"
+        ip = server.get('IP', 'Unknown')
+        hostname = server.get('HostName', 'Unknown')
+        speed = server.get('Speed')
+        ping = server.get('Ping')
+        score = server.get('Score')
+        if speed not in (None, ''):
+            try:
+                speed = f"{int(speed) / 1_000_000:.2f} mbps"
+            except ValueError:
+                speed = "Unknown"
+        else:
+            speed = "Unknown"
+        if ping not in (None, ''):
+            ping = f"{ping} ms"
+        else:
+            ping = "Unknown"
+        return f"{ip} - {hostname} - {speed} - {ping} - {score}"
 
     def disconnect(self):
         # disconnects an active connection and resets the UI to its idle state
