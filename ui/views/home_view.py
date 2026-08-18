@@ -39,6 +39,10 @@ class HomeView(QWidget):
         self._server_info = QLabel("")
         self._server_info.setStyleSheet("color: gray;")
 
+        self._refresh_button = QPushButton("Refresh Servers")
+        self._refresh_button.setEnabled(False)
+        self._refresh_button.clicked.connect(self._refresh_servers)
+
         layout = QVBoxLayout()
         layout.addWidget(self._country_button)
         layout.addWidget(self._server_button)
@@ -46,12 +50,18 @@ class HomeView(QWidget):
         layout.addWidget(self._cancel_button)
         layout.addWidget(self._status)
         layout.addWidget(self._server_info)
+        layout.addWidget(self._refresh_button)
         self.setLayout(layout)
 
         self._load_servers()
 
     def is_connected(self):
         return self._client.is_connected()
+
+    def _refresh_servers(self):
+        self.disconnect()
+        self._status.setText("Loading servers...")
+        self._load_servers()
 
     def _open_country_picker(self):
         countries = self._servers.get_countries() if self._servers else []
@@ -102,6 +112,9 @@ class HomeView(QWidget):
 
     def _load_servers(self):
         self._button.setEnabled(False)
+        self._refresh_button.setEnabled(False)
+        self._country_button.setEnabled(False)
+        self._server_button.setEnabled(False)
         self._load_worker = LoadServersWorker()
         self._load_worker.loaded.connect(self._on_servers_loaded)
         self._load_worker.message.connect(self._on_message)
@@ -111,6 +124,8 @@ class HomeView(QWidget):
         self._servers = servers
         self._country_button.setEnabled(servers is not None)
         self._button.setEnabled(True)
+        self._server_button.setEnabled(True)
+        self._refresh_button.setEnabled(True)
         if servers is not None:
             self._status.setText("Disconnected")
         else:
