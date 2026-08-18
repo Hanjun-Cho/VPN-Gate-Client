@@ -24,11 +24,10 @@ Desktop Client for Connecting to [VPN Gate](https://www.vpngate.net/) Relay Serv
 
 - [X] Connect to Relay Server through OpenVPN
 - [X] Basic GUI
-- [ ] Country Selection
+- [X] Country Selection
    - [X] Display Countries with Available Servers
    - [X] Select Country as Destination     
-   - [ ] Automatically Select Server Least Likely to be Detected as a VPN
    - [X] Manual Server Selection
 - [X] Keep Application Open in System Tray
-- [ ] Connectivity Graphs
-- [ ] Improve GUI Visuals
+- [X] Connectivity Statistics 
+- [X] Improve GUI Visuals
