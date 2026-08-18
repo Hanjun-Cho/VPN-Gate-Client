@@ -2,7 +2,7 @@
 
 Desktop Client for Connecting to [VPN Gate](https://www.vpngate.net/) Relay Server by Country in One Click  
 
-<img width="1587" height="783" alt="image" src="https://github.com/user-attachments/assets/1540f349-e548-4019-8d1d-398c5ddc25e0" />
+<img width="400" height="260" alt="image" src="https://github.com/user-attachments/assets/885a5c9f-798b-44f0-b347-510f0570be5d" />
 
 <br>
 <br>
