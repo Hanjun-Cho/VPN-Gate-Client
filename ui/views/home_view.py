@@ -1,3 +1,6 @@
+import time
+
+from PySide6.QtCore import QTimer, Signal
 from PySide6.QtWidgets import QPushButton, QLabel, QVBoxLayout, QWidget
 
 from core.vpn_client import VPNClient
@@ -14,8 +17,20 @@ def _parse_score(value):
         return float("-inf")
 
 
+def _format_bytes(count):
+    # formats a byte count as a human-readable size (KB/MB/GB)
+    value = float(count)
+    for unit in ("B", "KB", "MB", "GB", "TB"):
+        if value < 1024 or unit == "TB":
+            return f"{value:.1f} {unit}"
+        value /= 1024
+
+
 class HomeView(QWidget):
     # the landing view: a connect button plus status and server info labels
+    connection_changed = Signal(bool)
+    connecting_changed = Signal(bool)
+
     def __init__(self):
         super().__init__()
 
@@ -25,6 +40,11 @@ class HomeView(QWidget):
         self._selected_server = None
         self._load_worker = None
         self._connect_worker = None
+        self._stats_baseline = None
+
+        self._stats_timer = QTimer(self)
+        self._stats_timer.setInterval(1000)
+        self._stats_timer.timeout.connect(self._update_stats)
 
         self._country_button = QPushButton("Change Country")
         self._country_button.setEnabled(False)
@@ -48,6 +68,10 @@ class HomeView(QWidget):
         self._server_info = QLabel("")
         self._server_info.setStyleSheet("color: gray;")
 
+        self._stats = QLabel("")
+        self._stats.setStyleSheet("color: gray;")
+        self._stats.hide()
+
         self._refresh_button = QPushButton("Refresh Servers")
         self._refresh_button.setEnabled(False)
         self._refresh_button.clicked.connect(self._refresh_servers)
@@ -59,10 +83,15 @@ class HomeView(QWidget):
         layout.addWidget(self._cancel_button)
         layout.addWidget(self._status)
         layout.addWidget(self._server_info)
+        layout.addWidget(self._stats)
         layout.addWidget(self._refresh_button)
         self.setLayout(layout)
 
         self._load_servers()
+
+    def closeEvent(self, event):
+        self._stats_timer.stop()
+        super().closeEvent(event)
 
     def is_connected(self):
         return self._client.is_connected()
@@ -169,15 +198,21 @@ class HomeView(QWidget):
             self._connect()
 
     def _reset_idle_ui(self):
+        self.connecting_changed.emit(False)
+        self.connection_changed.emit(False)
         self._button.setText("Connect")
         self._status.setText("Disconnected")
         self._status.setStyleSheet("color: gray;")
         self._server_info.setText("")
+        self._stats_timer.stop()
+        self._stats.hide()
+        self._stats_baseline = None
 
     def _connect(self):
         self._button.setEnabled(False)
         self._cancel_button.show()
         self._status.setText("Connecting...")
+        self.connecting_changed.emit(True)
         self._connect_worker = ConnectWorker(
             self._client, self._servers, self._selected_country, self._selected_server
         )
@@ -201,7 +236,9 @@ class HomeView(QWidget):
 
     def _on_connected(self, success, server):
         self._cancel_button.hide()
+        self.connecting_changed.emit(False)
         if success:
+            self.connection_changed.emit(True)
             self._button.setText("Disconnect")
             self._status.setText("Connected")
             self._status.setStyleSheet("color: green;")
@@ -210,6 +247,32 @@ class HomeView(QWidget):
                     f"{server.get('CountryLong', 'Unknown')} - {server.get('IP', 'Unknown')}"
                 )
                 self._server_info.setStyleSheet("color: green;")
+            self._stats_baseline = None
+            self._stats.show()
+            self._stats_timer.start()
+
+    def _update_stats(self):
+        # polls the connection for transfer stats and refreshes the label
+        stats = self._client.stats()
+        if stats is None:
+            return
+        self._stats.show()
+        bytes_in, bytes_out = stats
+        if self._stats_baseline is not None:
+            prev_in, prev_out, prev_time = self._stats_baseline
+            elapsed = time.monotonic() - prev_time
+            if elapsed > 0:
+                down_rate = (bytes_in - prev_in) / elapsed
+                up_rate = (bytes_out - prev_out) / elapsed
+                self._stats.setText(
+                    f"Downloaded: {_format_bytes(bytes_in)} | Uploaded: {_format_bytes(bytes_out)} | "
+                    f"Download: {_format_bytes(down_rate)}/s | Upload: {_format_bytes(up_rate)}/s"
+                )
+        else:
+            self._stats.setText(
+                f"Downloaded: {_format_bytes(bytes_in)} | Uploaded: {_format_bytes(bytes_out)}"
+            )
+        self._stats_baseline = (bytes_in, bytes_out, time.monotonic())
 
     def _on_message(self, text):
         self._status.setText(text)

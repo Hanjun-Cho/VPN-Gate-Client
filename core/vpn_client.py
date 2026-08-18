@@ -209,6 +209,17 @@ class VPNClient:
             return None
         return self._vpn.state
 
+    def stats(self):
+        # returns (bytes_in, bytes_out) transferred over the tunnel, or None
+        # if the connection is unavailable
+        if self._vpn is None:
+            return None
+        try:
+            stats = self._vpn.get_stats()
+            return stats.bytes_in, stats.bytes_out
+        except (errors.ConnectError, errors.NotConnectedError, errors.ParseError, OSError):
+            return None
+
     @staticmethod
     def _free_port():
         with socket.socket() as sock:

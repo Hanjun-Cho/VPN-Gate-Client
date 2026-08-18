@@ -21,21 +21,13 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(self._view)
 
         self._tray = self._create_tray()
+        self._view.connection_changed.connect(self._set_tray_color)
+        self._view.connecting_changed.connect(self._set_tray_connecting)
 
     def _create_tray(self):
         # generates a simple colored icon since the app ships no image assets
-        icon = QIcon()
-        pixmap = QPixmap(64, 64)
-        pixmap.fill(Qt.transparent)
-        from PySide6.QtGui import QPainter
-
-        painter = QPainter(pixmap)
-        painter.setRenderHint(QPainter.Antialiasing)
-        painter.setBrush(QColor("#3b82f6"))
-        painter.setPen(Qt.NoPen)
-        painter.drawEllipse(2, 2, 60, 60)
-        painter.end()
-        icon.addPixmap(pixmap)
+        icon = self._make_icon("#ef4444")
+        icon.addPixmap(self._make_pixmap("#ef4444"))
 
         menu = QMenu()
         show_action = QAction("Show", self)
@@ -52,6 +44,34 @@ class MainWindow(QMainWindow):
         tray.activated.connect(self._on_tray_activated)
         tray.show()
         return tray
+
+    @staticmethod
+    def _make_pixmap(color):
+        pixmap = QPixmap(64, 64)
+        pixmap.fill(Qt.transparent)
+        from PySide6.QtGui import QPainter
+
+        painter = QPainter(pixmap)
+        painter.setRenderHint(QPainter.Antialiasing)
+        painter.setBrush(QColor(color))
+        painter.setPen(Qt.NoPen)
+        painter.drawEllipse(2, 2, 60, 60)
+        painter.end()
+        return pixmap
+
+    def _make_icon(self, color):
+        icon = QIcon()
+        icon.addPixmap(self._make_pixmap(color))
+        return icon
+
+    def _set_tray_color(self, connected):
+        self._tray.setIcon(self._make_icon("#22c55e" if connected else "#ef4444"))
+
+    def _set_tray_connecting(self, connecting):
+        if connecting:
+            self._tray.setIcon(self._make_icon("#3b82f6"))
+        else:
+            self._tray.setIcon(self._make_icon("#ef4444"))
 
     def _on_tray_activated(self, reason):
         if reason == QSystemTrayIcon.ActivationReason.Trigger:
